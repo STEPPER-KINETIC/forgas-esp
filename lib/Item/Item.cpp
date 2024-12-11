@@ -35,7 +35,7 @@ Item::Item() {
     state = states::Initializing;
 
     for (int i=0; i<180; i++) {
-        for (int j=0; j<10; j++) {
+        for (int j=0; j<channelWidth; j++) {
             animation[i][j] = 0;
         }
     }
@@ -54,10 +54,10 @@ void Item::setupAnimation() {
     uint32_t size = sizeof(animConfig) / (channelWidth * sizeof(int32_t));    
     for (int i=0; i<size; i++) {
         for (int j=0; j<channelWidth; j++) {
-            animation[animConfig[i][0]][j] = animConfig[i][j];
-        }
-        animationLength = animConfig[i][0];
+            animation[i][j] = animConfig[i][j];
+        }        
     }
+    animationLength = size;
 }
 
 void Item::setupLeds() {
@@ -118,42 +118,39 @@ void Item::update() {
     case states::Initialized:
         if (alwaysStart || digitalRead(pirPin) == HIGH) {
             transition(states::Running);
-            startMillis = millis();
-            seconds = 0;
-            newSeconds = 0;        
+            startMillis = millis();            
+            currentIndex = 0;
         }
         break;
-    case states::Running:
-        newSeconds = (millis() - startMillis) / 1000 + 1;
-        if (newSeconds > seconds) {
-            seconds = newSeconds;
-            Serial.println(seconds);
-            if (animationLength >= seconds) {                
-                if (animation[seconds][0] == seconds) {                    
-                    for (byte i=1; i<5; i++) {
-                        digitalWrite(ledPins[i - 1], animation[seconds][i] == 1 ? HIGH : LOW);
-                    }
-                    digitalWrite(lightPin, animation[seconds][8] == 1 ? HIGH : LOW);
-                    digitalWrite(pwmPin, animation[seconds][9] == 1 ? HIGH : LOW);
-
-                    if (animation[seconds][5] > 0) {
-                        rotation->setSpeedInHz(animation[seconds][5]);
-                        rotation->setAcceleration(animation[seconds][6]);
-                        rotation->move(animation[seconds][5]);
-                        rotation->keepRunning();
-                    } else {
-                        rotation->stopMove();
-                    }
-
-                    if (animation[seconds][10] > 0) {
-                        sendFPWM(getFPWM(animation[seconds][10]));
-                    }
-                    vertical->moveTo(animation[seconds][7]);
+    case states::Running:            
+        if (currentIndex == animationLength) {
+            if (vertical->getCurrentSpeedInUs() == 0 && rotation->getCurrentSpeedInUs() == 0) {
+                transition(states::Finished);
+            }
+        } else {
+            currentMillis = millis() - startMillis;
+            if (currentMillis > animation[currentIndex][0]) {
+                Serial.println(currentIndex);                
+                for (byte i=1; i<5; i++) {
+                    digitalWrite(ledPins[i - 1], animation[currentIndex][i] == 1 ? HIGH : LOW);
                 }
-            } else {
-                if (vertical->getCurrentSpeedInUs() == 0 && rotation->getCurrentSpeedInUs() == 0) {
-                    transition(states::Finished);
+                digitalWrite(lightPin, animation[currentIndex][8] == 1 ? HIGH : LOW);
+                digitalWrite(pwmPin, animation[currentIndex][9] == 1 ? HIGH : LOW);
+
+                if (animation[currentIndex][5] > 0) {
+                    rotation->setSpeedInHz(animation[currentIndex][5]);
+                    rotation->setAcceleration(animation[currentIndex][6]);
+                    rotation->move(animation[currentIndex][5]);
+                    rotation->keepRunning();
+                } else {
+                    rotation->stopMove();
                 }
+
+                if (animation[currentIndex][10] > 0) {
+                    sendFPWM(getFPWM(animation[currentIndex][10]));
+                }
+                vertical->moveTo(animation[currentIndex][7]);
+                currentIndex = currentIndex + 1;
             }
         }
         break;

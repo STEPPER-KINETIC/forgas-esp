@@ -50,9 +50,9 @@ class Item {
     FastAccelStepper* rotation;
     states state;
 
-    uint32_t seconds = 0;
-    uint32_t newSeconds = 0;
+    uint32_t currentMillis = 0;
     uint32_t startMillis = 0;
+    uint32_t currentIndex = 0;
 
     int32_t animation[180][channelWidth];
     uint32_t animationLength = 0;
